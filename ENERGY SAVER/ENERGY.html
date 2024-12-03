@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure File Sharing</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2em;
+        }
+        .container {
+            max-width: 500px;
+            margin: auto;
+        }
+        input, select, button {
+            display: block;
+            margin: 1em 0;
+            padding: 10px;
+            width: 100%;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Registration Section -->
+        <div id="register">
+            <h1>Create an Account</h1>
+            <form id="registerForm">
+                <input type="text" id="regUsername" placeholder="Username" required>
+                <input type="password" id="regPassword" placeholder="Password" required>
+                <button type="submit">Register</button>
+            </form>
+            <p>Already have an account? <a href="#" onclick="showSection('login')">Login here</a></p>
+        </div>
+
+        <!-- Login Section -->
+        <div id="login" class="hidden">
+            <h1>Login</h1>
+            <form id="loginForm">
+                <input type="text" id="username" placeholder="Username" required>
+                <input type="password" id="password" placeholder="Password" required>
+                <button type="submit">Login</button>
+            </form>
+            <p>Don't have an account? <a href="#" onclick="showSection('register')">Register here</a></p>
+        </div>
+
+        <!-- Dashboard Section -->
+        <div id="dashboard" class="hidden">
+            <h1>Welcome, <span id="currentUserDisplay"></span></h1>
+            <button onclick="showSection('upload')">Upload and Share Files</button>
+            <button onclick="showSection('sharedFiles')">View Shared Files</button>
+            <button onclick="logout()">Logout</button>
+        </div>
+
+        <!-- File Upload Section -->
+        <div id="upload" class="hidden">
+            <h1>Upload and Share File</h1>
+            <form id="uploadForm">
+                <input type="file" id="file" required>
+                <label for="recipient">Share with:</label>
+                <select id="recipient" required>
+                    <option value="" disabled selected>Select a user</option>
+                </select>
+                <button type="submit">Upload and Share</button>
+            </form>
+            <button onclick="showSection('dashboard')">Back to Dashboard</button>
+        </div>
+
+        <!-- Shared Files Section -->
+        <div id="sharedFiles" class="hidden">
+            <h1>Files Shared With You</h1>
+            <ul id="sharedFilesList"></ul>
+            <button onclick="showSection('dashboard')">Back to Dashboard</button>
+        </div>
+    </div>
+
+    <script>
+        // Helper function to show and hide sections
+        function showSection(sectionId) {
+            document.querySelectorAll('.container > div').forEach(section => section.classList.add('hidden'));
+            document.getElementById(sectionId).classList.remove('hidden');
+            if (sectionId === "dashboard") {
+                document.getElementById("currentUserDisplay").textContent = localStorage.getItem("currentUser");
+            } else if (sectionId === "upload") {
+                loadRecipients();
+            } else if (sectionId === "sharedFiles") {
+                loadSharedFiles();
+            }
+        }
+
+        // Load list of registered users (for recipient selection)
+        function loadRecipients() {
+            const currentUser = localStorage.getItem("currentUser");
+            const users = JSON.parse(localStorage.getItem("users")) || {};
+            const recipientSelect = document.getElementById("recipient");
+            recipientSelect.innerHTML = '<option value="" disabled selected>Select a user</option>';
+            for (const user in users) {
+                if (user !== currentUser) {
+                    const option = document.createElement("option");
+                    option.value = user;
+                    option.textContent = user;
+                    recipientSelect.appendChild(option);
+                }
+            }
+        }
+
+        // Load files shared with the current user
+        function loadSharedFiles() {
+            const currentUser = localStorage.getItem("currentUser");
+            const sharedFiles = JSON.parse(localStorage.getItem("sharedFiles")) || {};
+            const filesForUser = sharedFiles[currentUser] || [];
+            const sharedFilesList = document.getElementById("sharedFilesList");
+            sharedFilesList.innerHTML = "";
+
+            if (filesForUser.length === 0) {
+                sharedFilesList.innerHTML = "<li>No files shared with you.</li>";
+            } else {
+                filesForUser.forEach(file => {
+                    const li = document.createElement("li");
+                    const link = document.createElement("a");
+                    link.href = file.url;
+                    link.textContent = Download: ${file.name};
+                    link.target = "_blank";
+                    li.appendChild(link);
+                    sharedFilesList.appendChild(li);
+                });
+            }
+        }
+
+        // Registration process
+        document.getElementById("registerForm").addEventListener("submit", function (e) {
+            e.preventDefault();
+            const username = document.getElementById("regUsername").value;
+            const password = document.getElementById("regPassword").value;
+
+            const users = JSON.parse(localStorage.getItem("users")) || {};
+            if (users[username]) {
+                alert("Username already exists. Please choose another username.");
+            } else {
+                users[username] = password;
+                localStorage.setItem("users", JSON.stringify(users));
+                alert("Registration successful! Please log in.");
+                showSection('login');
+            }
+        });
+
+        // Login process
+        document.getElementById("loginForm").addEventListener("submit", function (e) {
+            e.preventDefault();
+            const username = document.getElementById("username").value;
+            const password = document.getElementById("password").value;
+
+            const users = JSON.parse(localStorage.getItem("users")) || {};
+            if (users[username] && users[username] === password) {
+                localStorage.setItem("currentUser", username);
+                alert("Login successful!");
+                showSection('dashboard');
+            } else {
+                alert("Invalid username or password!");
+            }
+        });
+
+        // File upload and sharing
+        document.getElementById("uploadForm").addEventListener("submit", function (e) {
+            e.preventDefault();
+            const file = document.getElementById("file").files[0];
+            const recipient = document.getElementById("recipient").value;
+
+            if (file && recipient) {
+                const fileURL = URL.createObjectURL(file);
+                const sharedFiles = JSON.parse(localStorage.getItem("sharedFiles")) || {};
+                sharedFiles[recipient] = sharedFiles[recipient] || [];
+                sharedFiles[recipient].push({ name: file.name, url: fileURL });
+                localStorage.setItem("sharedFiles", JSON.stringify(sharedFiles));
+                alert("File shared successfully!");
+                showSection('dashboard');
+            } else {
+                alert("Please select a file and a recipient.");
+            }
+        });
+
+        // Logout process
+        function logout() {
+            localStorage.removeItem("currentUser");
+            showSection('login');
+        }
+
+        // Initialize app
+        showSection('register');
+    </script>
+</body>
+</html>
